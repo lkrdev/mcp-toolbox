@@ -24,8 +24,8 @@ RUN curl -fL "https://ziglang.org/download/0.15.2/zig-x86_64-linux-0.15.2.tar.xz
 WORKDIR /go/src/mcp-toolbox
 COPY . .
 
-ARG TARGETOS
-ARG TARGETARCH
+ARG TARGETOS="linux"
+ARG TARGETARCH="amd64"
 ARG BUILD_TYPE="container.dev"
 ARG COMMIT_SHA=""
 
