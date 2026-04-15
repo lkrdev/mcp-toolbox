@@ -122,6 +122,7 @@ import (
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookercreategitbranch"
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookercreateprojectdirectory"
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookercreateprojectfile"
+	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookercreatelookmldashboard"
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookercreateviewfromtable"
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookerdeleteagent"
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookerdeletegitbranch"
@@ -132,6 +133,8 @@ import (
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookergetagent"
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookergetconnectiondatabases"
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookergetconnections"
+	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookergetlookmldashboardexamples"
+
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookergetconnectionschemas"
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookergetconnectiontablecolumns"
 	_ "github.com/googleapis/mcp-toolbox/internal/tools/looker/lookergetconnectiontables"
