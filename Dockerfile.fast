@@ -1,6 +1,0 @@
-FROM gcr.io/distroless/cc-debian12:nonroot
-WORKDIR /app
-COPY mcp-toolbox /toolbox
-USER nonroot
-LABEL io.modelcontextprotocol.server.name="io.github.googleapis/mcp-toolbox"
-ENTRYPOINT ["/toolbox"]

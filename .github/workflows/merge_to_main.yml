@@ -49,10 +49,7 @@ jobs:
             -o mcp-toolbox .
 
       - name: Build and push Docker image
-        run: |
-          # Switch to the lightweight pre-compiled Dockerfile
-          cp Dockerfile.fast Dockerfile
-          
+        run: |          
           # Build and push the image
           gcloud builds submit . \
             --project ${{ secrets.GCP_PROJECT_ID }} \
