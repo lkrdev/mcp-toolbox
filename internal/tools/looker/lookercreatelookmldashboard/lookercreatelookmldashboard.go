@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 
 	yaml "github.com/goccy/go-yaml"
 	"github.com/googleapis/mcp-toolbox/internal/embeddingmodels"
@@ -85,13 +87,14 @@ func (cfg Config) Initialize(srcs map[string]sources.Source) (tools.Tool, error)
 		}
 	}
 
-	mcpManifest := tools.GetMcpManifest(cfg.Name, cfg.Description, cfg.AuthRequired, params, annotations)
+	effectiveDescription := cfg.Description + "\n\nYou MUST print the full dashboard URL provided in the tool response to the user upon successful execution."
+	mcpManifest := tools.GetMcpManifest(cfg.Name, effectiveDescription, cfg.AuthRequired, params, annotations)
 
 	return Tool{
 		Config:     cfg,
 		Parameters: params,
 		manifest: tools.Manifest{
-			Description:  cfg.Description,
+			Description:  effectiveDescription,
 			Parameters:   params.Manifest(),
 			AuthRequired: cfg.AuthRequired,
 		},
@@ -200,7 +203,14 @@ func (t Tool) Invoke(ctx context.Context, resourceMgr tools.SourceProvider, para
 
 	data := make(map[string]any)
 	data["type"] = "text"
-	data["text"] = fmt.Sprintf("Successfully created LookML dashboard and copied to UDD with ID %s", *udd.Id)
+	
+	uddID := ""
+	if udd.Id != nil {
+		uddID = *udd.Id
+	}
+	
+	lookerBaseURL := strings.TrimSuffix(os.Getenv("LOOKERSDK_BASE_URL"), "/")
+	data["text"] = fmt.Sprintf("Successfully created LookML dashboard and copied to UDD with ID %s.\n\n[View Dashboard](%s/dashboards/%s)", uddID, lookerBaseURL, uddID)
 	if udd.Id != nil {
 		data["udd_id"] = *udd.Id
 	}
