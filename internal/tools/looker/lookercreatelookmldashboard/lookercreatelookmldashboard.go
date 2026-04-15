@@ -170,7 +170,7 @@ func (t Tool) Invoke(ctx context.Context, resourceMgr tools.SourceProvider, para
 	}
 
 	// 3. Write it to dashboards/:new-relevant-unique-name.lookml
-	filePath := fmt.Sprintf("dashboards/%s.lookml", dashboardName)
+	filePath := fmt.Sprintf("dashboards/%s.dashboard.lookml", dashboardName)
 	fileReq := lookercommon.FileContent{
 		Path:    filePath,
 		Content: string(lookmlBytes),
