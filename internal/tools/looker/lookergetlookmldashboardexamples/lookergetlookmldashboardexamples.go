@@ -40,8 +40,7 @@ type Config struct {
 	Description  string   `yaml:"description"`
 	Source       string   `yaml:"source"`
 	Type         string   `yaml:"type"`
-	AuthRequired bool     `yaml:"authRequired"`
-	AuthServices []string `yaml:"authServices"`
+	AuthRequired []string `yaml:"authRequired"`
 }
 
 func (cfg Config) ToolConfigType() string {
@@ -56,15 +55,15 @@ func (cfg Config) Initialize(srcs map[string]sources.Source) (tools.Tool, error)
 	exampleParameter := parameters.NewStringParameterWithDefault("example_name", "all", "Specific example to fetch: business_pulse, brand_lookup, customer_lookup, web_analytics_overview, all")
 	params := parameters.Parameters{exampleParameter}
 
-	mcpManifest := tools.GetMcpManifest(cfg.Name, cfg.Description, cfg.AuthServices, params, nil)
-
+	mcpManifest := tools.GetMcpManifest(cfg.Name, cfg.Description, cfg.AuthRequired, params, nil)
+	
 	return Tool{
 		Config:     cfg,
 		Parameters: params,
 		manifest: tools.Manifest{
 			Description:  cfg.Description,
 			Parameters:   params.Manifest(),
-			AuthRequired: cfg.AuthServices,
+			AuthRequired: cfg.AuthRequired,
 		},
 		mcpManifest: mcpManifest,
 	}, nil
@@ -98,7 +97,7 @@ func (t Tool) RequiresClientAuthorization(resourceMgr tools.SourceProvider) (boo
 }
 
 func (t Tool) Authorized(verifiedAuthServices []string) bool {
-	return tools.IsAuthorized(t.AuthServices, verifiedAuthServices)
+	return tools.IsAuthorized(t.AuthRequired, verifiedAuthServices)
 }
 
 func (t Tool) GetAuthTokenHeaderName(resourceMgr tools.SourceProvider) (string, error) {
