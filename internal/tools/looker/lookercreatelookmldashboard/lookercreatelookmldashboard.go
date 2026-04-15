@@ -73,11 +73,12 @@ func (cfg Config) ToolConfigType() string {
 
 func (cfg Config) Initialize(srcs map[string]sources.Source) (tools.Tool, error) {
 	projectIdParameter := parameters.NewStringParameter("project_id", "The id of the project")
+	modelNameParameter := parameters.NewStringParameter("model_name", "The name of the model the dashboard belongs to")
 	dashboardNameParameter := parameters.NewStringParameter("dashboard_name", "The name of the dashboard in LookML")
 	titleParameter := parameters.NewStringParameter("title", "The title of the dashboard")
 	elementsParameter := parameters.NewArrayParameterWithDefault("elements", []any{}, "Dashboard elements", parameters.NewMapParameter("element", "An element in the dashboard", ""))
 	filtersParameter := parameters.NewArrayParameterWithDefault("filters", []any{}, "Dashboard filters", parameters.NewMapParameter("filter", "A filter in the dashboard", ""))
-	params := parameters.Parameters{projectIdParameter, dashboardNameParameter, titleParameter, elementsParameter, filtersParameter}
+	params := parameters.Parameters{projectIdParameter, modelNameParameter, dashboardNameParameter, titleParameter, elementsParameter, filtersParameter}
 
 	annotations := cfg.Annotations
 	if annotations == nil {
@@ -115,13 +116,74 @@ func (t Tool) ToConfig() tools.ToolConfig {
 	return t.Config
 }
 
+type FilterUiConfig struct {
+	Type    string `yaml:"type,omitempty"`
+	Display string `yaml:"display,omitempty"`
+}
+
+type DashboardFilter struct {
+	Name                string          `yaml:"name"`
+	Title               string          `yaml:"title"`
+	Type                string          `yaml:"type"`
+	DefaultValue        any             `yaml:"default_value,omitempty"`
+	AllowMultipleValues *bool           `yaml:"allow_multiple_values,omitempty"`
+	Required            *bool           `yaml:"required,omitempty"`
+	UiConfig            *FilterUiConfig `yaml:"ui_config,omitempty"`
+	Model               string          `yaml:"model,omitempty"`
+	Explore             string          `yaml:"explore,omitempty"`
+	ListensToFilters    []string        `yaml:"listens_to_filters,omitempty"`
+	Field               string          `yaml:"field,omitempty"`
+	Extra               map[string]any  `yaml:",inline"`
+}
+
+type DashboardElement struct {
+	Title         string            `yaml:"title,omitempty"`
+	Name          string            `yaml:"name"`
+	Model         string            `yaml:"model,omitempty"`
+	Explore       string            `yaml:"explore,omitempty"`
+	Type          string            `yaml:"type"`
+	Fields        []string          `yaml:"fields,omitempty"`
+	Measures      []string          `yaml:"measures,omitempty"`
+	Pivots        []string          `yaml:"pivots,omitempty"`
+	FillFields    []string          `yaml:"fill_fields,omitempty"`
+	Filters       map[string]any    `yaml:"filters,omitempty"`
+	Sorts         []string          `yaml:"sorts,omitempty"`
+	Limit         *int              `yaml:"limit,omitempty"`
+	ColumnLimit   *int              `yaml:"column_limit,omitempty"`
+	DynamicFields []any             `yaml:"dynamic_fields,omitempty"`
+	QueryTimezone string            `yaml:"query_timezone,omitempty"`
+	Listen        map[string]string `yaml:"listen,omitempty"`
+	Row           *int              `yaml:"row,omitempty"`
+	Col           *int              `yaml:"col,omitempty"`
+	Width         *int              `yaml:"width,omitempty"`
+	Height        *int              `yaml:"height,omitempty"`
+	Colors        []string          `yaml:"colors,omitempty"`
+	TextColor     string            `yaml:"text_color,omitempty"`
+	NoteState     string            `yaml:"note_state,omitempty"`
+	NoteDisplay   string            `yaml:"note_display,omitempty"`
+	NoteText      string            `yaml:"note_text,omitempty"`
+	Extra         map[string]any    `yaml:",inline"`
+}
+
+type EmbedStyle struct {
+	BackgroundColor   string `yaml:"background_color,omitempty"`
+	ShowTitle         *bool  `yaml:"show_title,omitempty"`
+	TitleColor        string `yaml:"title_color,omitempty"`
+	ShowFiltersBar    *bool  `yaml:"show_filters_bar,omitempty"`
+	TileTextColor     string `yaml:"tile_text_color,omitempty"`
+	TextTileTextColor string `yaml:"text_tile_text_color,omitempty"`
+}
+
 type LookmlDashboard struct {
-	Dashboard       string `yaml:"dashboard"`
-	Title           string `yaml:"title"`
-	Layout          string `yaml:"layout"`
-	PreferredViewer string `yaml:"preferred_viewer"`
-	Filters         []any  `yaml:"filters,omitempty"`
-	Elements        []any  `yaml:"elements,omitempty"`
+	Dashboard       string             `yaml:"dashboard"`
+	Title           string             `yaml:"title"`
+	Layout          string             `yaml:"layout"`
+	PreferredViewer string             `yaml:"preferred_viewer"`
+	Description     string             `yaml:"description,omitempty"`
+	QueryTimezone   string             `yaml:"query_timezone,omitempty"`
+	EmbedStyle      *EmbedStyle        `yaml:"embed_style,omitempty"`
+	Filters         []DashboardFilter  `yaml:"filters,omitempty"`
+	Elements        []DashboardElement `yaml:"elements,omitempty"`
 }
 
 func (t Tool) Invoke(ctx context.Context, resourceMgr tools.SourceProvider, params parameters.ParamValues, accessToken tools.AccessToken) (any, util.ToolboxError) {
@@ -137,6 +199,7 @@ func (t Tool) Invoke(ctx context.Context, resourceMgr tools.SourceProvider, para
 
 	mapParams := params.AsMap()
 	projectId := mapParams["project_id"].(string)
+	modelName := mapParams["model_name"].(string)
 	dashboardName := mapParams["dashboard_name"].(string)
 	title := mapParams["title"].(string)
 	elements := mapParams["elements"].([]any)
@@ -154,14 +217,54 @@ func (t Tool) Invoke(ctx context.Context, resourceMgr tools.SourceProvider, para
 	// Optional: create dashboards directory (ignore error if already exists)
 	_ = lookercommon.CreateProjectDirectory(sdk, projectId, "dashboards", source.LookerApiSettings())
 
+	// Fetch all project files to ensure uniqueness of the filename/dashboard name
+	projectFiles, err := sdk.AllProjectFiles(projectId, "", source.LookerApiSettings())
+	if err != nil {
+		return nil, util.ProcessGeneralError(err)
+	}
+
+	existingPaths := make(map[string]bool)
+	for _, f := range projectFiles {
+		if f.Path != nil {
+			existingPaths[*f.Path] = true
+		}
+	}
+
+	originalDashboardName := dashboardName
+	filePath := fmt.Sprintf("dashboards/%s.dashboard.lookml", dashboardName)
+	counter := 1
+	for existingPaths[filePath] {
+		dashboardName = fmt.Sprintf("%s_%d", originalDashboardName, counter)
+		filePath = fmt.Sprintf("dashboards/%s.dashboard.lookml", dashboardName)
+		counter++
+	}
+
+	filtersBytes, err := yaml.Marshal(filters)
+	if err != nil {
+		return nil, util.NewClientServerError("error marshaling filters", http.StatusInternalServerError, err)
+	}
+	var typedFilters []DashboardFilter
+	if err := yaml.Unmarshal(filtersBytes, &typedFilters); err != nil {
+		return nil, util.NewClientServerError("error unmarshaling filters", http.StatusInternalServerError, err)
+	}
+
+	elementsBytes, err := yaml.Marshal(elements)
+	if err != nil {
+		return nil, util.NewClientServerError("error marshaling elements", http.StatusInternalServerError, err)
+	}
+	var typedElements []DashboardElement
+	if err := yaml.Unmarshal(elementsBytes, &typedElements); err != nil {
+		return nil, util.NewClientServerError("error unmarshaling elements", http.StatusInternalServerError, err)
+	}
+
 	// 2. Create LookML dashboard content
 	dash := LookmlDashboard{
 		Dashboard:       dashboardName,
 		Title:           title,
 		Layout:          "newspaper",
 		PreferredViewer: "dashboards-next",
-		Filters:         filters,
-		Elements:        elements,
+		Filters:         typedFilters,
+		Elements:        typedElements,
 	}
 
 	lookmlBytes, err := yaml.Marshal([]LookmlDashboard{dash})
@@ -169,8 +272,7 @@ func (t Tool) Invoke(ctx context.Context, resourceMgr tools.SourceProvider, para
 		return nil, util.NewClientServerError("error marshaling yaml", http.StatusInternalServerError, err)
 	}
 
-	// 3. Write it to dashboards/:new-relevant-unique-name.lookml
-	filePath := fmt.Sprintf("dashboards/%s.dashboard.lookml", dashboardName)
+	// 3. Write it to dashboards/name.dashboard.lookml
 	fileReq := lookercommon.FileContent{
 		Path:    filePath,
 		Content: string(lookmlBytes),
@@ -192,7 +294,7 @@ func (t Tool) Invoke(ctx context.Context, resourceMgr tools.SourceProvider, para
 	folderId := *mresp.PersonalFolderId
 
 	// 5. Copy the LookML dashboard to a UDD
-	lookmlDashboardId := fmt.Sprintf("%s::%s", projectId, dashboardName)
+	lookmlDashboardId := fmt.Sprintf("%s::%s", modelName, dashboardName)
 	
 	var udd v4.Dashboard
 	path := fmt.Sprintf("/lookml_dashboards/%s/import/%s", url.PathEscape(lookmlDashboardId), url.PathEscape(folderId))
