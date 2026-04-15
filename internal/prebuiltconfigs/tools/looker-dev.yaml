@@ -464,6 +464,20 @@ description: |
   - project_id (required): The unique ID of the LookML project.
   - branch (required): The branch to delete.
 ---
+kind: tool
+name: create_lookml_dashboard
+type: looker-create-lookml-dashboard
+source: looker-source
+description: |
+  This tool creates a new LookML dashboard within a specified project.
+---
+kind: tool
+name: get_lookml_dashboard_examples
+type: looker-get-lookml-dashboard-examples
+source: looker-source
+description: |
+  This tool provides immediate access to LookML dashboard structures for high-quality templates.
+---
 kind: toolset
 name: looker_dev_tools
 tools:
@@ -494,3 +508,5 @@ tools:
 - create_git_branch
 - switch_git_branch
 - delete_git_branch
+- create_lookml_dashboard
+- get_lookml_dashboard_examples
