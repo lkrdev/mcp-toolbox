@@ -38,6 +38,9 @@ jobs:
 
       - name: Build and push Docker image
         run: |
+          # Enable Kaniko caching in Cloud Build
+          gcloud config set builds/use_kaniko True
+          
           # Build and push the image with both the release tag and latest
           gcloud builds submit . \
             --project ${{ secrets.GCP_PROJECT_ID }} \
